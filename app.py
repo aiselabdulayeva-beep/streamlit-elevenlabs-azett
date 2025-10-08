@@ -1,47 +1,46 @@
 import streamlit as st
-from openai import AzureOpenAI
 import streamlit as st
 import requests
+from openai import OpenAI
 from io import BytesIO
 
-# === Azure OpenAI üçün dəyişənlər ===
-AZURE_API_KEY = st.secrets["AZURE_OPENAI_KEY"]
-AZURE_ENDPOINT = st.secrets["AZURE_OPENAI_ENDPOINT"]
-AZURE_DEPLOYMENT = st.secrets["AZURE_OPENAI_DEPLOYMENT"]
+# === Secrets-dən məlumatlar ===
+API_KEY = st.secrets["AZURE_OPENAI_KEY"]
+ENDPOINT = st.secrets["AZURE_OPENAI_ENDPOINT"]
+DEPLOYMENT_NAME = st.secrets["AZURE_OPENAI_DEPLOYMENT"]
 
-# === ElevenLabs üçün dəyişənlər ===
 ELEVEN_API_KEY = st.secrets["ELEVEN_API_KEY"]
 VOICE_ID = st.secrets["VOICE_ID"]
 
-# === AzureOpenAI müştərisini yaradılırıq ===
-client = AzureOpenAI(
-    api_key=AZURE_API_KEY,
-    api_version="2024-05-01-preview",
-    azure_endpoint=AZURE_ENDPOINT
+# === Azure OpenAI client yaradılır ===
+client = OpenAI(
+    base_url=f"{ENDPOINT}openai/deployments/{DEPLOYMENT_NAME}/extensions",
+    api_key=API_KEY
 )
 
-st.set_page_config(page_title="AZURE + ElevenLabs Assistant", page_icon="🎙️")
-st.title("🎙️ Peşəkar Azərbaycan Dilli Köməkçi (Azure OpenAI versiyası)")
+# === Streamlit interfeysi ===
+st.set_page_config(page_title="Azure + ElevenLabs Assistant", page_icon="🎙️")
+st.title("🎙️ Azərbaycan Dilli Səsli Köməkçi (Azure OpenAI + ElevenLabs)")
 
-user_input = st.text_input("Sualını və ya mətni yaz:")
+user_input = st.text_input("Sualını yaz:")
 
 if st.button("Danış!"):
     if not user_input.strip():
-        st.warning("Zəhmət olmasa, bir mətni yaz.")
+        st.warning("Zəhmət olmasa, sualı yaz.")
     else:
         # 1️⃣ Azure OpenAI cavabı
         with st.spinner("LLM düşünür..."):
-            response = client.chat.completions.create(
-                model=AZURE_DEPLOYMENT,
+            completion = client.chat.completions.create(
+                model=DEPLOYMENT_NAME,
                 messages=[
-                    {"role": "system", "content": "Cavabları Azərbaycan dilində, peşəkar və aydın tonda ver."},
-                    {"role": "user", "content": user_input}
-                ]
+                    {"role": "system", "content": "Sən Azərbaycan dilində, peşəkar və köməkçi tonda danışan asistentsən."},
+                    {"role": "user", "content": user_input},
+                ],
             )
-            answer = response.choices[0].message.content
+            answer = completion.choices[0].message.content
             st.success(f"💬 Cavab: {answer}")
 
-        # 2️⃣ ElevenLabs TTS ilə səsləndiririk
+        # 2️⃣ ElevenLabs ilə səsləndiririk
         with st.spinner("Səsləndirilir..."):
             tts_url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
             headers = {
