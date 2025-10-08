@@ -1,22 +1,27 @@
 import streamlit as st
+from openai import AzureOpenAI
+import streamlit as st
 import requests
-import openai
 from io import BytesIO
 
-# === API açarları ===
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+# === Azure OpenAI üçün dəyişənlər ===
+AZURE_API_KEY = st.secrets["AZURE_OPENAI_KEY"]
+AZURE_ENDPOINT = st.secrets["AZURE_OPENAI_ENDPOINT"]
+AZURE_DEPLOYMENT = st.secrets["AZURE_OPENAI_DEPLOYMENT"]
+
+# === ElevenLabs üçün dəyişənlər ===
 ELEVEN_API_KEY = st.secrets["ELEVEN_API_KEY"]
 VOICE_ID = st.secrets["VOICE_ID"]
 
-# === Streamlit interfeysi ===
-st.set_page_config(page_title="AZETT Voice Assistant", page_icon="🎙️", layout="centered")
-st.title("🎙️ Peşəkar Azərbaycan Səsli Köməkçi")
-st.markdown(
-    """
-    Bu tətbiq **GPT-4o-mini** modelindən istifadə edərək suallara Azərbaycan dilində cavab verir  
-    və **ElevenLabs v3** modeli ilə qadın səsində səsləndirir 🔊  
-    """
+# === AzureOpenAI müştərisini yaradılırıq ===
+client = AzureOpenAI(
+    api_key=AZURE_API_KEY,
+    api_version="2024-05-01-preview",
+    azure_endpoint=AZURE_ENDPOINT
 )
+
+st.set_page_config(page_title="AZURE + ElevenLabs Assistant", page_icon="🎙️")
+st.title("🎙️ Peşəkar Azərbaycan Dilli Köməkçi (Azure OpenAI versiyası)")
 
 user_input = st.text_input("Sualını və ya mətni yaz:")
 
@@ -24,21 +29,21 @@ if st.button("Danış!"):
     if not user_input.strip():
         st.warning("Zəhmət olmasa, bir mətni yaz.")
     else:
-        # 1️⃣ LLM cavabı alırıq
+        # 1️⃣ Azure OpenAI cavabı
         with st.spinner("LLM düşünür..."):
-            completion = openai.chat.completions.create(
-                model="gpt-4o-mini",
+            response = client.chat.completions.create(
+                model=AZURE_DEPLOYMENT,
                 messages=[
-                    {"role": "system", "content": "Cavabları yalnız Azərbaycan dilində və peşəkar, köməkçi tonda ver."},
-                    {"role": "user", "content": user_input},
+                    {"role": "system", "content": "Cavabları Azərbaycan dilində, peşəkar və aydın tonda ver."},
+                    {"role": "user", "content": user_input}
                 ]
             )
-            answer = completion.choices[0].message.content.strip()
+            answer = response.choices[0].message.content
             st.success(f"💬 Cavab: {answer}")
 
-        # 2️⃣ ElevenLabs TTS ilə səsi yaradırıq
+        # 2️⃣ ElevenLabs TTS ilə səsləndiririk
         with st.spinner("Səsləndirilir..."):
-            url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
+            tts_url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
             headers = {
                 "xi-api-key": ELEVEN_API_KEY,
                 "Content-Type": "application/json"
@@ -49,11 +54,10 @@ if st.button("Danış!"):
                 "language_code": "AZE",
                 "voice_settings": {"stability": 0.4, "similarity_boost": 0.8}
             }
-            response = requests.post(url, headers=headers, json=payload)
 
-            if response.status_code == 200:
-                audio_data = BytesIO(response.content)
-                st.audio(audio_data, format="audio/mp3")
+            tts_response = requests.post(tts_url, headers=headers, json=payload)
+
+            if tts_response.status_code == 200:
+                st.audio(BytesIO(tts_response.content), format="audio/mp3")
             else:
-                st.error(f"Səs yaradıla bilmədi: {response.status_code}")
-
+                st.error(f"Səs yaradıla bilmədi: {tts_response.status_code}")
