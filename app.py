@@ -4,9 +4,9 @@ import openai
 from io import BytesIO
 
 # === API açarları ===
-openai.api_key = st.secrets["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"]
-ELEVEN_API_KEY = st.secrets["sk_291679d6e692fce76cc3e455e23a3268e2f2ccefd4ad4f11"]
-VOICE_ID = st.secrets["t8kSqGbUxd45SW56awYR"]
+openai.api_key = st.secrets["OPENAI_API_KEY"]
+ELEVEN_API_KEY = st.secrets["ELEVEN_API_KEY"]
+VOICE_ID = st.secrets["VOICE_ID"]
 
 # === Streamlit interfeysi ===
 st.set_page_config(page_title="AZETT Voice Assistant", page_icon="🎙️", layout="centered")
@@ -56,3 +56,4 @@ if st.button("Danış!"):
                 st.audio(audio_data, format="audio/mp3")
             else:
                 st.error(f"Səs yaradıla bilmədi: {response.status_code}")
+
