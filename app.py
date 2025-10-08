@@ -1,24 +1,24 @@
 import streamlit as st
 import streamlit as st
 import requests
-from openai import OpenAI
+from openai import AzureOpenAI
 from io import BytesIO
 
-# === Secrets-dən məlumatlar ===
-API_KEY = st.secrets["AZURE_OPENAI_KEY"]
-ENDPOINT = st.secrets["AZURE_OPENAI_ENDPOINT"]
-DEPLOYMENT_NAME = st.secrets["AZURE_OPENAI_DEPLOYMENT"]
-
+# === Secrets ===
+AZURE_OPENAI_KEY = st.secrets["AZURE_OPENAI_KEY"]
+AZURE_OPENAI_ENDPOINT = st.secrets["AZURE_OPENAI_ENDPOINT"]
+AZURE_OPENAI_DEPLOYMENT = st.secrets["AZURE_OPENAI_DEPLOYMENT"]
 ELEVEN_API_KEY = st.secrets["ELEVEN_API_KEY"]
 VOICE_ID = st.secrets["VOICE_ID"]
 
-# === Azure OpenAI client yaradılır ===
-client = OpenAI(
-    base_url=f"{ENDPOINT}openai/deployments/{DEPLOYMENT_NAME}/extensions",
-    api_key=API_KEY
+# === Azure client yaradılır ===
+client = AzureOpenAI(
+    api_key=AZURE_OPENAI_KEY,
+    api_version="2024-05-01-preview",
+    azure_endpoint=AZURE_OPENAI_ENDPOINT
 )
 
-# === Streamlit interfeysi ===
+# === Streamlit interfeys ===
 st.set_page_config(page_title="Azure + ElevenLabs Assistant", page_icon="🎙️")
 st.title("🎙️ Azərbaycan Dilli Səsli Köməkçi (Azure OpenAI + ElevenLabs)")
 
@@ -30,14 +30,14 @@ if st.button("Danış!"):
     else:
         # 1️⃣ Azure OpenAI cavabı
         with st.spinner("LLM düşünür..."):
-            completion = client.chat.completions.create(
-                model=DEPLOYMENT_NAME,
+            response = client.chat.completions.create(
+                model=AZURE_OPENAI_DEPLOYMENT,
                 messages=[
                     {"role": "system", "content": "Sən Azərbaycan dilində, peşəkar və köməkçi tonda danışan asistentsən."},
                     {"role": "user", "content": user_input},
-                ],
+                ]
             )
-            answer = completion.choices[0].message.content
+            answer = response.choices[0].message.content
             st.success(f"💬 Cavab: {answer}")
 
         # 2️⃣ ElevenLabs ilə səsləndiririk
