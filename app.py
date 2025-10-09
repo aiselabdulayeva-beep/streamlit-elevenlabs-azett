@@ -35,8 +35,7 @@ if st.button("Danış!"):
                 messages=[
                     {"role": "system", "content": "Sən Azərbaycan dilində, peşəkar və köməkçi tonda danışan asistentsən."},
                     {"role": "user", "content": user_input},
-                ],
-                api_version="2024-05-01-preview"  # required for Azure
+                ]
             )
 
             answer = completion.choices[0].message.content
@@ -61,3 +60,4 @@ if st.button("Danış!"):
                 st.audio(BytesIO(tts_response.content), format="audio/mp3")
             else:
                 st.error(f"Səs yaradıla bilmədi: {tts_response.status_code}")
+
