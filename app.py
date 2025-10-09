@@ -1,25 +1,34 @@
 import streamlit as st
-import requests
 from openai import OpenAI
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import torch
+import soundfile as sf
 from io import BytesIO
 
 # === Secrets ===
 AZURE_OPENAI_KEY = st.secrets["AZURE_OPENAI_KEY"]
-AZURE_OPENAI_ENDPOINT = st.secrets["AZURE_OPENAI_ENDPOINT"]  # e.g. "https://xxx-swedencentral.cognitiveservices.azure.com/openai/v1/"
-AZURE_OPENAI_DEPLOYMENT = st.secrets["AZURE_OPENAI_DEPLOYMENT"]  # e.g. "gpt-4o-mini"
-ELEVEN_API_KEY = st.secrets["ELEVEN_API_KEY"]
-VOICE_ID = st.secrets["VOICE_ID"]
+AZURE_OPENAI_ENDPOINT = st.secrets["AZURE_OPENAI_ENDPOINT"]
+AZURE_OPENAI_DEPLOYMENT = st.secrets["AZURE_OPENAI_DEPLOYMENT"]
 
-# === Correct Azure client setup ===
+# === Azure client ===
 client = OpenAI(
-    base_url=AZURE_OPENAI_ENDPOINT,     # already includes /openai/v1/
+    base_url=AZURE_OPENAI_ENDPOINT,
     api_key=AZURE_OPENAI_KEY,
-    default_headers={"api-key": AZURE_OPENAI_KEY}  # Azure requires this header
+    default_headers={"api-key": AZURE_OPENAI_KEY}
 )
 
+# === Load Hugging Face TTS model (Azerbaijani) ===
+@st.cache_resource
+def load_tts_model():
+    tokenizer = AutoTokenizer.from_pretrained("facebook/mms-tts-aze")
+    model = AutoModelForSeq2SeqLM.from_pretrained("facebook/mms-tts-aze")
+    return tokenizer, model
+
+tokenizer, model = load_tts_model()
+
 # === Streamlit UI ===
-st.set_page_config(page_title="Azure + ElevenLabs Assistant", page_icon="🎙️")
-st.title("🎙️ Azərbaycan Dilli Səsli Köməkçi (Azure OpenAI + ElevenLabs)")
+st.set_page_config(page_title="Azure + HuggingFace TTS", page_icon="🎙️")
+st.title("🎙️ Azərbaycan Dilli Səsli Köməkçi (Azure OpenAI + HuggingFace TTS)")
 
 user_input = st.text_input("Sualını yaz:")
 
@@ -27,38 +36,27 @@ if st.button("Danış!"):
     if not user_input.strip():
         st.warning("Zəhmət olmasa, sualı yaz.")
     else:
-        # 1️⃣ Azure OpenAI cavabı
+        # 1️⃣ Azure LLM cavabı
         with st.spinner("LLM düşünür..."):
             completion = client.chat.completions.create(
-                model=AZURE_OPENAI_DEPLOYMENT,   # your deployment name
+                model=AZURE_OPENAI_DEPLOYMENT,
                 messages=[
                     {"role": "system", "content": "Sən Azərbaycan dilində, peşəkar və köməkçi tonda danışan asistentsən."},
                     {"role": "user", "content": user_input},
                 ]
             )
-
             answer = completion.choices[0].message.content
             st.success(f"💬 Cavab: {answer}")
-            # 2️⃣ ElevenLabs TTS
-with st.spinner("Səsləndirilir..."):
-    tts_url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
-    headers = {
-        "xi-api-key": ELEVEN_API_KEY,
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "text": answer,                        # Text you want to convert to speech
-        "model_id": "eleven_multilingual_v2",  # ✅ correct multilingual TTS model
-        "voice_settings": {
-            "stability": 0.4,
-            "similarity_boost": 0.8
-        }
-    }
 
-    tts_response = requests.post(tts_url, headers=headers, json=payload)
+        # 2️⃣ Hugging Face TTS (Azerbaijani)
+        with st.spinner("Səsləndirilir..."):
+            inputs = tokenizer(answer, return_tensors="pt")
+            with torch.no_grad():
+                speech = model.generate(**inputs)
+            speech_array = speech[0].cpu().numpy()
 
-    if tts_response.status_code == 200:
-        st.audio(BytesIO(tts_response.content), format="audio/mp3")
-    else:
-        st.error(f"Səs yaradıla bilmədi: {tts_response.status_code} | {tts_response.text}")
-
+            # Save to buffer as WAV and play
+            wav_bytes = BytesIO()
+            sf.write(wav_bytes, speech_array, samplerate=16000, format="WAV")
+            wav_bytes.seek(0)
+            st.audio(wav_bytes, format="audio/wav")
