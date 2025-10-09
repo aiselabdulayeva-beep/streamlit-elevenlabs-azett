@@ -27,6 +27,7 @@ if st.button("Danış!"):
     if not user_input.strip():
         st.warning("Zəhmət olmasa, sualı yaz.")
     else:
+        # 1️⃣ Azure OpenAI cavabı
         with st.spinner("LLM düşünür..."):
             completion = client.chat.completions.create(
                 model=AZURE_OPENAI_DEPLOYMENT,   # your deployment name
@@ -39,25 +40,22 @@ if st.button("Danış!"):
             answer = completion.choices[0].message.content
             st.success(f"💬 Cavab: {answer}")
 
-    # 2️⃣ ElevenLabs TTS
-with st.spinner("Səsləndirilir..."):
-    tts_url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
-    headers = {
-        "xi-api-key": ELEVEN_API_KEY,
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "text": answer,
-        "model_id": "eleven_multilingual_sts_v2",   # ✅ updated model name
-        "voice_settings": {"stability": 0.4, "similarity_boost": 0.8}
-    }
+        # 2️⃣ ElevenLabs TTS
+        with st.spinner("Səsləndirilir..."):
+            tts_url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
+            headers = {
+                "xi-api-key": ELEVEN_API_KEY,
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "text": answer,
+                "model_id": "eleven_multilingual_sts_v2",  # ✅ updated model name
+                "voice_settings": {"stability": 0.4, "similarity_boost": 0.8}
+            }
 
-    tts_response = requests.post(tts_url, headers=headers, json=payload)
-    if tts_response.status_code == 200:
-        st.audio(BytesIO(tts_response.content), format="audio/mp3")
-    else:
-        st.error(f"Səs yaradıla bilmədi: {tts_response.status_code} | {tts_response.text}")
-
+            tts_response = requests.post(tts_url, headers=headers, json=payload)
+            if tts_response.status_code == 200:
+                st.audio(BytesIO(tts_response.content), format="audio/mp3")
+            else:
                 st.error(f"Səs yaradıla bilmədi: {tts_response.status_code} | {tts_response.text}")
-
 
