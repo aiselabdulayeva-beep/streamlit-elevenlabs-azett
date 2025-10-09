@@ -44,7 +44,7 @@ if st.button("Danış!"):
             answer = completion.choices[0].message.content
             st.success(f"💬 Cavab: {answer}")
 
-      from base64 import b64encode
+from base64 import b64encode
 
 # 2️⃣ Azure Speech realtime TTS
 with st.spinner("Səsləndirilir (real-time)..."):
@@ -59,5 +59,9 @@ with st.spinner("Səsləndirilir (real-time)..."):
         </audio>
     """
     st.markdown(audio_html, unsafe_allow_html=True)
+
+
+
+
 
 
