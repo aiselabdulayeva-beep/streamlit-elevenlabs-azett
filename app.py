@@ -39,6 +39,7 @@ if st.button("Danış!"):
         # Stream GPT answer sentence by sentence
         full_answer = ""
         current_sentence = ""
+
         with st.spinner("Axınla cavab yaradılır..."):
             stream = client.chat.completions.create(
                 model=AZURE_OPENAI_DEPLOYMENT,
@@ -49,22 +50,17 @@ if st.button("Danış!"):
                 stream=True
             )
 
-for chunk in stream:
-    if not chunk.choices or not hasattr(chunk.choices[0], "delta"):
-        continue
+            for chunk in stream:
+                # ✅ boş və ya bitmə mesajlarını keç
+                if not chunk.choices or not hasattr(chunk.choices[0], "delta"):
+                    continue
 
-    delta = chunk.choices[0].delta
-    if "content" in delta:
-        token = delta["content"]
-        full_answer += token
-        current_sentence += token
-        st_placeholder.markdown(f"💬 **{full_answer}**")
-
-        # Hər cümlə bitəndə səsləndir
-        if any(p in token for p in [".", "!", "?"]):
-            synthesizer.speak_text_async(current_sentence.strip()).get()
-            current_sentence = ""
-            time.sleep(0.1)
+                delta = chunk.choices[0].delta
+                if "content" in delta:
+                    token = delta["content"]
+                    full_answer += token
+                    current_sentence += token
+                    st_placeholder.markdown(f"💬 **{full_answer}**")
 
                     # Hər cümlə bitəndə səsləndir
                     if any(p in token for p in [".", "!", "?"]):
@@ -72,10 +68,9 @@ for chunk in stream:
                         current_sentence = ""
                         time.sleep(0.1)
 
-        # Əgər son cümlə qalıbsa, onu da səsləndir
-        if current_sentence.strip():
-            synthesizer.speak_text_async(current_sentence.strip()).get()
+            # Əgər son cümlə qalıbsa, onu da səsləndir
+            if current_sentence.strip():
+                synthesizer.speak_text_async(current_sentence.strip()).get()
 
-        st.success("✅ Cavab tamlandı.")
-
+            st.success("✅ Cavab tamlandı.")
 
