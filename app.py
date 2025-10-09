@@ -1,7 +1,8 @@
 import streamlit as st
 from openai import OpenAI
 import azure.cognitiveservices.speech as speechsdk
-import time
+from io import BytesIO
+from base64 import b64encode
 
 # === Secrets ===
 AZURE_OPENAI_KEY = st.secrets["AZURE_OPENAI_KEY"]
@@ -20,11 +21,11 @@ client = OpenAI(
 # === Azure Speech config ===
 speech_config = speechsdk.SpeechConfig(subscription=AZURE_SPEECH_KEY, region=AZURE_SPEECH_REGION)
 speech_config.speech_synthesis_language = "az-AZ"
-speech_config.speech_synthesis_voice_name = "az-AZ-BabekNeural"
+speech_config.speech_synthesis_voice_name = "az-AZ-BabekNeural"  # ✅ Azerbaijani neural voice
 
 # === Streamlit UI ===
-st.set_page_config(page_title="Azure Real-time Voice Assistant", page_icon="🎙️")
-st.title("🎙️ Azərbaycan Dilli Səsli Köməkçi (Cümlə-cümlə səsli cavab)")
+st.set_page_config(page_title="Azure Realtime Voice Assistant", page_icon="🎙️")
+st.title("🎙️ Azərbaycan Dilli Səsli Köməkçi (Azure OpenAI + Azure Speech)")
 
 user_input = st.text_input("Sualını yaz:")
 
@@ -32,45 +33,29 @@ if st.button("Danış!"):
     if not user_input.strip():
         st.warning("Zəhmət olmasa, sualı yaz.")
     else:
-        st.info("💭 GPT düşünür və danışacaq...")
-        st_placeholder = st.empty()
-        synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=None)
-
-        # Stream GPT answer sentence by sentence
-        full_answer = ""
-        current_sentence = ""
-
-        with st.spinner("Axınla cavab yaradılır..."):
-            stream = client.chat.completions.create(
+        # 1️⃣ Get LLM answer
+        with st.spinner("LLM düşünür..."):
+            completion = client.chat.completions.create(
                 model=AZURE_OPENAI_DEPLOYMENT,
                 messages=[
-                    {"role": "system", "content": "Sən Azərbaycan dilində, təbii və aydın tonda danışan asistentsən."},
+                    {"role": "system", "content": "Sən Azərbaycan dilində, peşəkar və köməkçi tonda danışan asistentsən."},
                     {"role": "user", "content": user_input},
-                ],
-                stream=True
+                ]
             )
+            answer = completion.choices[0].message.content
+            st.success(f"💬 Cavab: {answer}")
 
-            for chunk in stream:
-                # ✅ boş və ya bitmə mesajlarını keç
-                if not chunk.choices or not hasattr(chunk.choices[0], "delta"):
-                    continue
+        # 2️⃣ Convert to speech
+        with st.spinner("Səsləndirilir (real-time)..."):
+            synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=None)
+            result = synthesizer.speak_text_async(answer).get()
+            audio_data = result.audio_data
 
-                delta = chunk.choices[0].delta
-                if "content" in delta:
-                    token = delta["content"]
-                    full_answer += token
-                    current_sentence += token
-                    st_placeholder.markdown(f"💬 **{full_answer}**")
-
-                    # Hər cümlə bitəndə səsləndir
-                    if any(p in token for p in [".", "!", "?"]):
-                        synthesizer.speak_text_async(current_sentence.strip()).get()
-                        current_sentence = ""
-                        time.sleep(0.1)
-
-            # Əgər son cümlə qalıbsa, onu da səsləndir
-            if current_sentence.strip():
-                synthesizer.speak_text_async(current_sentence.strip()).get()
-
-            st.success("✅ Cavab tamlandı.")
-
+            # Play automatically (no button)
+            audio_base64 = b64encode(audio_data).decode()
+            audio_html = f"""
+                <audio autoplay>
+                    <source src="data:audio/wav;base64,{audio_base64}" type="audio/wav">
+                </audio>
+            """
+            st.markdown(audio_html, unsafe_allow_html=True)
