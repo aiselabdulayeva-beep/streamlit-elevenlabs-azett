@@ -49,13 +49,22 @@ if st.button("Danış!"):
                 stream=True
             )
 
-            for chunk in stream:
-                delta = chunk.choices[0].delta
-                if "content" in delta:
-                    token = delta["content"]
-                    full_answer += token
-                    current_sentence += token
-                    st_placeholder.markdown(f"💬 **{full_answer}**")
+for chunk in stream:
+    if not chunk.choices or not hasattr(chunk.choices[0], "delta"):
+        continue
+
+    delta = chunk.choices[0].delta
+    if "content" in delta:
+        token = delta["content"]
+        full_answer += token
+        current_sentence += token
+        st_placeholder.markdown(f"💬 **{full_answer}**")
+
+        # Hər cümlə bitəndə səsləndir
+        if any(p in token for p in [".", "!", "?"]):
+            synthesizer.speak_text_async(current_sentence.strip()).get()
+            current_sentence = ""
+            time.sleep(0.1)
 
                     # Hər cümlə bitəndə səsləndir
                     if any(p in token for p in [".", "!", "?"]):
@@ -68,4 +77,5 @@ if st.button("Danış!"):
             synthesizer.speak_text_async(current_sentence.strip()).get()
 
         st.success("✅ Cavab tamlandı.")
+
 
