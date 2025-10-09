@@ -1,24 +1,24 @@
 import streamlit as st
-import streamlit as st
 import requests
-from openai import AzureOpenAI
+from openai import OpenAI  # note: not AzureOpenAI here
 from io import BytesIO
 
 # === Secrets ===
 AZURE_OPENAI_KEY = st.secrets["AZURE_OPENAI_KEY"]
-AZURE_OPENAI_ENDPOINT = st.secrets["AZURE_OPENAI_ENDPOINT"]
-AZURE_OPENAI_DEPLOYMENT = st.secrets["AZURE_OPENAI_DEPLOYMENT"]
+AZURE_OPENAI_ENDPOINT = st.secrets["AZURE_OPENAI_ENDPOINT"]  # e.g. "https://kapitalbank-ai.openai.azure.com/"
+AZURE_OPENAI_DEPLOYMENT = st.secrets["AZURE_OPENAI_DEPLOYMENT"]  # e.g. "gpt-4o-mini"
 ELEVEN_API_KEY = st.secrets["ELEVEN_API_KEY"]
 VOICE_ID = st.secrets["VOICE_ID"]
 
-# === Azure client yaradılır ===
-client = AzureOpenAI(
-    api_key=AZURE_OPENAI_KEY,
-    api_version="2024-05-01-preview",
-    azure_endpoint=AZURE_OPENAI_ENDPOINT
+# === Azure client (generic version) ===
+# Construct correct Azure Chat Completions endpoint:
+# Azure's format: https://{resource}.openai.azure.com/openai/deployments/{deployment_name}
+client = OpenAI(
+    base_url=f"{AZURE_OPENAI_ENDPOINT}openai/deployments/{AZURE_OPENAI_DEPLOYMENT}",
+    api_key=AZURE_OPENAI_KEY
 )
 
-# === Streamlit interfeys ===
+# === Streamlit interface ===
 st.set_page_config(page_title="Azure + ElevenLabs Assistant", page_icon="🎙️")
 st.title("🎙️ Azərbaycan Dilli Səsli Köməkçi (Azure OpenAI + ElevenLabs)")
 
@@ -30,17 +30,19 @@ if st.button("Danış!"):
     else:
         # 1️⃣ Azure OpenAI cavabı
         with st.spinner("LLM düşünür..."):
-            response = client.chat.completions.create(
+            completion = client.chat.completions.create(
                 model=AZURE_OPENAI_DEPLOYMENT,
                 messages=[
                     {"role": "system", "content": "Sən Azərbaycan dilində, peşəkar və köməkçi tonda danışan asistentsən."},
                     {"role": "user", "content": user_input},
-                ]
+                ],
+                api_version="2024-05-01-preview"  # required for Azure
             )
-            answer = response.choices[0].message.content
+
+            answer = completion.choices[0].message.content
             st.success(f"💬 Cavab: {answer}")
 
-        # 2️⃣ ElevenLabs ilə səsləndiririk
+        # 2️⃣ ElevenLabs TTS
         with st.spinner("Səsləndirilir..."):
             tts_url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
             headers = {
@@ -55,7 +57,6 @@ if st.button("Danış!"):
             }
 
             tts_response = requests.post(tts_url, headers=headers, json=payload)
-
             if tts_response.status_code == 200:
                 st.audio(BytesIO(tts_response.content), format="audio/mp3")
             else:
