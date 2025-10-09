@@ -1,6 +1,4 @@
 streamlit
 openai
-transformers
-torch
-soundfile
-sentencepiece
+azure-cognitiveservices-speech
+
