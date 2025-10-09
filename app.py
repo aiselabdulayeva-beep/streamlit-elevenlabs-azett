@@ -44,9 +44,20 @@ if st.button("Danış!"):
             answer = completion.choices[0].message.content
             st.success(f"💬 Cavab: {answer}")
 
-        # 2️⃣ Azure Speech realtime TTS
-        with st.spinner("Səsləndirilir (real-time)..."):
-            synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=None)
-            result = synthesizer.speak_text_async(answer).get()
-            audio_data = result.audio_data
-            st.audio(BytesIO(audio_data), format="audio/wav")
+      from base64 import b64encode
+
+# 2️⃣ Azure Speech realtime TTS
+with st.spinner("Səsləndirilir (real-time)..."):
+    synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=None)
+    result = synthesizer.speak_text_async(answer).get()
+    audio_data = result.audio_data
+    # Play automatically without pressing "Play"
+    audio_base64 = b64encode(audio_data).decode()
+    audio_html = f"""
+        <audio autoplay>
+            <source src="data:audio/wav;base64,{audio_base64}" type="audio/wav">
+        </audio>
+    """
+    st.markdown(audio_html, unsafe_allow_html=True)
+
+
